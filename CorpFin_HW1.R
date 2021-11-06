@@ -1,5 +1,7 @@
 library(simfinapi)
 library(dplyr)
+library(ggplot2)
+library(reshape2)
 
 WD = getwd()
 
@@ -291,14 +293,13 @@ df.results.quarterly$return_on_assets = df.pl.quarterly$net_income / df.bs.quart
 # -- cash from operating activities: yearly --
 df.results.yearly$cash_from_operating_activities = df.cf.yearly$net_income_starting_line + df.cf.yearly$other_adjustments + df.cf.yearly$depreciation_amortization +
   df.cf.yearly$non_cash_items + df.cf.yearly$stock_based_compensation + df.cf.yearly$deferred_income_taxes +
-  df.cf.yearly$other_non_cash_adjustments + df.cf.yearly$change_in_working_capital + df.cf.yearly$change_in_accounts_receivable +
-  df.cf.yearly$change_in_inventories + df.cf.yearly$change_in_accounts_payable + df.cf.yearly$change_in_other
+  df.cf.yearly$other_non_cash_adjustments + df.cf.yearly$change_in_working_capital + df.cf.yearly$net_cash_from_discontinued_operations_operating + df.cf.yearly$change_in_other
 
 # -- cash from operating activities: quarterly --
 df.results.quarterly$cash_from_operating_activities = df.cf.quarterly$net_income_starting_line + df.cf.quarterly$other_adjustments + df.cf.quarterly$depreciation_amortization +
   df.cf.quarterly$non_cash_items + df.cf.quarterly$stock_based_compensation + df.cf.quarterly$deferred_income_taxes +
-  df.cf.quarterly$other_non_cash_adjustments + df.cf.quarterly$change_in_working_capital + df.cf.quarterly$change_in_accounts_receivable +
-  df.cf.quarterly$change_in_inventories + df.cf.quarterly$change_in_accounts_payable + df.cf.quarterly$change_in_other
+  df.cf.quarterly$other_non_cash_adjustments + df.cf.quarterly$change_in_working_capital + df.cf.quarterly$net_cash_from_discontinued_operations_operating + 
+  df.cf.quarterly$change_in_other
 
 # --- cash from financing activities ---
 # should be this: df.cf.yearly$net_cash_from_financing_activities
@@ -331,3 +332,196 @@ df.results.quarterly$cash_from_investing_activities = df.cf.quarterly$change_in_
   df.cf.quarterly$decrease_in_long_term_investment + df.cf.quarterly$increase_in_long_term_investment + df.cf.quarterly$net_cash_from_acquisitions_divestitures +
   df.cf.quarterly$net_cash_from_divestitures + df.cf.quarterly$cash_for_acquisition_of_subsidiaries + df.cf.quarterly$cash_for_joint_ventures +
   df.cf.quarterly$net_cash_from_other_acquisitions + df.cf.quarterly$other_investing_activities + df.cf.quarterly$net_cash_from_discontinued_operations_investing
+
+
+
+
+
+#### EX 3 ####
+
+# load in the dividend dates 
+# https://www.streetinsider.com/dividend_history.php?q=cop
+
+df.dividends = read.csv('dividend_dates.csv')
+
+# formatting the columns
+df.dividends$Ex.Div..Date = df.dividends$Ex.Div..Date %>% as.Date(format="%m/%d/%y")
+df.dividends$Decl..Date = df.dividends$Decl..Date %>% as.Date(format="%m/%d/%y")
+df.dividends$Rec..Date = df.dividends$Rec..Date %>% as.Date(format="%m/%d/%y")
+df.dividends$Pay..Date = df.dividends$Pay..Date %>% as.Date(format="%m/%d/%y")
+df.dividends$Amount = sub("$", "", df.dividends$Amount, fixed = TRUE) %>% as.numeric
+df.dividends$Yield = sub("%", "", df.dividends$Amount, fixed = TRUE) %>% as.numeric
+
+
+# NEWS EVENTS ARE STILL MISSING !!! #
+
+# ToDo: You need to look at the news releases of the companies' website for tender offer or market offer.
+
+
+
+
+
+#### EX 4 ####
+
+# The S&P500 Energy is the most suitable market proxy for a US-based firm in the broadest sense.
+# However, as part of this case study we try to evaluate a potential investment in
+# the sector of US publicly traded companies that deal in oil/gas. Hence, the most suitable
+# market proxy would be an US index that tracks the oil/gas sector in the USA. 
+# The Dow Jones U.S. Oil & Gas Index (DJUSEN) seems like a suitable choice. The index is
+# designed to measure the stock performance of U.S. companies in the oil and gas sector.
+# Thus, we deem it to be the most appropriate proxy for the market for the company
+# ConocoPhillips (COP).
+# https://www.spglobal.com/spdji/en/indices/equity/sp-500-energy-sector/#overview
+
+#### EX 5 ###
+library(tidyquant)
+
+df.COP = tq_get("COP", get='stock.prices',
+                from="2016-01-01", to="2020-12-31")
+
+df.COP.daily = df.COP %>% tq_transmute(select=adjusted,
+                                       mutate_fun=periodReturn, 
+                                       period="daily", 
+                                       type="arithmetic") 
+
+df.COP.weekly = df.COP %>% tq_transmute(select=adjusted,
+                                        mutate_fun=periodReturn, 
+                                        period="weekly", 
+                                        type="arithmetic") 
+  
+df.COP.monthly = df.COP %>% tq_transmute(select=adjusted,
+                                         mutate_fun=periodReturn, 
+                                         period="monthly", 
+                                         type="arithmetic") 
+  
+returns_daily_ar_annualized = df.COP.daily$daily.returns %>% Return.annualized(scale = 252, geometric = FALSE)
+returns_weekly_ar_annualized = df.COP.weekly$weekly.returns %>% Return.annualized(scale = 52, geometric = FALSE)
+returns_monthly_ar_annualized = df.COP.monthly$monthly.returns %>% Return.annualized(scale = 12, geometric = FALSE)
+
+returns_daily_compounded_annualized = df.COP.daily$daily.returns %>% Return.annualized(scale = 252, geometric = TRUE)
+returns_weekly_compounded_annualized = df.COP.weekly$weekly.returns %>% Return.annualized(scale = 52, geometric = TRUE)
+returns_monthly_compounded_annualized = df.COP.monthly$monthly.returns %>% Return.annualized(scale = 12, geometric = TRUE)
+
+
+# src: https://www.investing.com/indices/s-p-500-energy-historical-data
+df.SP500E = read.csv("sp500e.csv")
+# set right language for R
+Sys.setlocale("LC_TIME", "C")
+
+colnames(df.SP500E)[1:2] = c("date","price")
+df.SP500E$date = df.SP500E$date %>% as.Date(format="%b %d, %Y")
+
+
+df.SP500E.small = df.SP500E %>% filter(between(date, as.Date("2016-01-01"),as.Date("2020-12-31")))
+
+df.SP500E.daily = df.SP500E.small %>% tq_transmute(select="price",
+                                       mutate_fun=periodReturn, 
+                                       period="daily", 
+                                       type="arithmetic") 
+
+df.SP500E.weekly = df.SP500E.small %>% tq_transmute(select="price",
+                                        mutate_fun=periodReturn, 
+                                        period="weekly", 
+                                        type="arithmetic") 
+
+df.SP500E.monthly = df.SP500E.small %>% tq_transmute(select="price",
+                                         mutate_fun=periodReturn, 
+                                         period="monthly", 
+                                         type="arithmetic") 
+
+market_daily_ar_annualized = df.SP500E.daily$daily.returns %>% Return.annualized(scale = 252, geometric = FALSE)
+market_weekly_ar_annualized = df.SP500E.weekly$weekly.returns %>% Return.annualized(scale = 52, geometric = FALSE)
+market_monthly_ar_annualized = df.SP500E.monthly$monthly.returns %>% Return.annualized(scale = 12, geometric = FALSE)
+
+market_daily_compounded_annualized = df.SP500E.daily$daily.returns %>% Return.annualized(scale = 252, geometric = TRUE)
+market_weekly_compounded_annualized = df.SP500E.weekly$weekly.returns %>% Return.annualized(scale = 52, geometric = TRUE)
+market_monthly_compounded_annualized = df.SP500E.monthly$monthly.returns %>% Return.annualized(scale = 12, geometric = TRUE)
+
+
+
+
+#### EX 6 ####
+
+# --- daily return volatiltiy ---
+sd(df.COP.daily$daily.returns) * sqrt(252)
+sd(df.SP500E.daily$daily.returns) * sqrt(252)
+
+# --- weekly return volatiltiy ---
+sd(df.COP.weekly$weekly.returns) * sqrt(52)
+sd(df.SP500E.weekly$weekly.returns) * sqrt(52)
+
+# --- monthly return volatiltiy ---
+sd(df.COP.monthly$monthly.returns) * sqrt(12)
+sd(df.SP500E.monthly$monthly.returns) * sqrt(12)
+
+#### EX 7 ####
+
+# --- SECOND APPROACH: rolling window of 104
+
+vola_cop.weekly = runSD(df.COP.weekly$weekly.returns, n=104) * sqrt(52)
+
+vola_sp500e.weekly = runSD(df.SP500E.weekly$weekly.returns, n=104)  * sqrt(52)
+
+
+
+
+ggplot(data_frame(date=df.COP.weekly$date, cop=vola_cop.weekly, sp500e=vola_sp500e.weekly) %>% melt(id='date', variable.name="Ticker"),
+       aes(x=date, y=value, colour=Ticker)) +
+  geom_line() +
+  ggtitle("Rolling Volatility (n=104)")+
+  ylab("volatility (annualized)") 
+
+
+
+#### EX 8 ####
+
+# get the big data frame for COP
+df.COP.big = tq_get("COP", get='stock.prices',
+                    from="2006-01-01", to="2020-12-31")
+
+# compute the weekly returns for the big data frame
+df.COP.big.weekly = df.COP.big %>% tq_transmute(select=adjusted,
+                                        mutate_fun=periodReturn, 
+                                        period="weekly", 
+                                        type="arithmetic") 
+# filter the right data
+df.SP500E.big = df.SP500E %>% filter(between(date, as.Date("2006-01-01"),as.Date("2020-12-31")))
+
+df.SP500E.weekly =  df.SP500E.big %>% tq_transmute(select="price",
+                                                     mutate_fun=periodReturn, 
+                                                     period="weekly", 
+                                                     type="arithmetic") 
+
+
+# --- FIRST APPROACH: compute one correlation for each year ---
+
+#(6,7) (8,9) (10, 11) ... (18, 19) (20_start, 20_end)
+df.iteration = data.frame(start=c(paste0("20",ifelse(seq(6, 18, by=2)<10,"0",""), seq(6, 18, by=2),"-01-01"), "2020-01-01"),
+                          end=c(paste0("20",ifelse(seq(7, 19, by=2)<10,"0",""),seq(7, 19, by=2),"-12-31"), "2020-12-31"))
+
+# create empty seq for correlation values
+cor_seq = c()
+
+# compute the correlation for 2 years like mentioned above
+for(row in 1:nrow(df.iteration)){
+  start_date = df.iteration[row, "start"]
+  end_date = df.iteration[row, "end"]
+  df.sp_tmp = df.SP500E.weekly %>% filter(between(date, as.Date(start_date),as.Date(end_date)))
+  df.cop_tmp = df.COP.big.weekly %>% filter(between(date, as.Date(start_date),as.Date(end_date)))
+  cor_seq = c(cor_seq, cor(df.sp_tmp$weekly.returns, df.cop_tmp$weekly.returns))
+}
+
+# plot the correlation in a barplot
+barplot(cor_seq, names.arg = sapply(1:8, FUN = function(x)  paste0("(",df.iteration[x,],")", collapse = " to\n ")), las=2)
+
+
+# --- SECOND APPROACH: compute rolling correlation ---
+
+# rolling correlation for a window of 104 weeks
+rolling_cor = runCor(df.SP500E.weekly$weekly.returns, df.COP.big.weekly$weekly.returns, n=104)
+
+# plot the time series of the rolling correlation
+plot(y=rolling_cor, x=df.SP500E.weekly$date, type = 'l')
+
+
+
