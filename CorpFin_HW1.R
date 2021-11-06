@@ -233,10 +233,6 @@ df.results.quarterly$market_leverage = market_leverage.quarterly
 
 ## Do nice plots compare the Leverage Ratios
 
-plot(df.results.quarterly$market_leverage, x = df.results.quarterly$time,type = "b", col = "darkgreen")
-lines(df.results.quarterly$book_leverage, col = "darkblue")
-
-
 fig <- plot_ly(
   data = df.results.quarterly,
   x = ~time, 
@@ -365,39 +361,32 @@ df.results.quarterly$cash_from_investing_activities = df.cf.quarterly$change_in_
 # Generating Image of the table
 as_image(kable(df.results.quarterly), file = "C:/Users/santi/OneDrive/Documentos/R/CorporateFinance/table_ratios.png")
 
-df.results.quarterly %>%
-  kbl(caption = "Summary of Financial Ratios",
-      booktabs = T, linesep = "") %>%
+
+table_ratios <- cbind(df.results.quarterly[,1] ,(apply(df.results.quarterly[,2:13], 2, function(x) round(x,2))))
+
+
+table_ratios[,c(1, 4:10)] %>%
+  kbl(booktabs = T, linesep = "") %>%
   add_header_above(c("Quarter",
-                     "Financial Ratios" = 12),
+                     "Financial Ratios" = 7),
                    color = spec_color(1, option = "A"), bold = T) %>%
   kable_styling(latex_options = c("hold_position")) %>%
   row_spec(0, bold = T, color = spec_color(1)) %>%
   column_spec(1, bold = T, color = spec_color(1)) %>%
   column_spec(2, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,2])), option = "D", end = 0.8,)) %>%
+              background = spec_color(c(as.numeric(table_ratios[,4])), option = "D", end = 0.8,)) %>%
   column_spec(3, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,3])), option = "D", end = 0.8)) %>%
+              background = spec_color(c(as.numeric(table_ratios[,5])), option = "D", end = 0.8)) %>%
   column_spec(4, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,4])), option = "D", end = 0.8)) %>%
+              background = spec_color(c(as.numeric(table_ratios[,6])), option = "D", end = 0.8)) %>%
   column_spec(5, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,5])), option = "D", end = 0.8)) %>%
+              background = spec_color(c(as.numeric(table_ratios[,7])), option = "D", end = 0.8)) %>%
   column_spec(6, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,6])), option = "D", end = 0.8)) %>%
+              background = spec_color(c(as.numeric(table_ratios[,8])), option = "D", end = 0.8)) %>%
   column_spec(7, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,7])), option = "D", end = 0.8)) %>%
+              background = spec_color(c(as.numeric(table_ratios[,9])), option = "D", end = 0.8)) %>%
   column_spec(8, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,8])), option = "D", end = 0.8)) %>%
-  column_spec(9, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,9])), option = "D", end = 0.8)) %>%
-  column_spec(10, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,10])), option = "D", end = 0.8)) %>%
-  column_spec(11, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,11])), option = "D", end = 0.8)) %>%
-  column_spec(12, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,12])), option = "D", end = 0.8)) %>%
-  column_spec(13, color = "white",
-              background = spec_color(c(unlist(df.results.quarterly[,13])), option = "D", end = 0.8))
+              background = spec_color(c(as.numeric(table_ratios[,10])), option = "D", end = 0.8))
 
 
 #### EX 3 ####
@@ -590,4 +579,3 @@ fig3 <- plot_ly(x = df.SP500E.weekly$date,
   mode = "lines"
 ) 
 fig3 %>% layout(title = "Rolling Correlation")
-
