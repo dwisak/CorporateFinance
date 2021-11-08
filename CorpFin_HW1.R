@@ -1,16 +1,26 @@
 library(simfinapi)
 library(dplyr)
 library(ggplot2)
+library(reshape)
 library(reshape2)
+library(Rcpp)
+library(magrittr)
+library(plotly)
+library(kableExtra)
+library(viridis)
 
 WD = getwd()
 
 # source the API KEY https://simfin.com/
-source("ConstantVariables.R")
 
+#source("ConstantVariables.R")
+
+# Own API Key from 'https://simfin.com/login'
+API_KEY <- "fMCZMXOSNa1WMr9lGTlOKCUXiJjNm7rT"
 simfinapi::sfa_set_api_key(api_key = API_KEY)
 simfinapi::sfa_set_cache_dir(path=paste0(WD,"/responses"), create = TRUE)
 
+# 'Rcpp' package needed
 entities = simfinapi::sfa_get_entities()
 
 TICKER = 'COP'
@@ -134,6 +144,7 @@ df.derived.quarterly = get_fin_data(statement='derived', years=2015:2020,
 #### EX 1 ####
 
 # empty data frames for the results
+quarters <- c("q1", "q2", "q3", "q4")
 df.results.yearly = data.frame(time=2015:2020)
 df.results.quarterly = data.frame(time=sapply(2015:2020, FUN = function(year) paste0(year, quarters)) %>% c)
 
@@ -219,6 +230,19 @@ attributes(market_leverage.quarterly)$label = "market leverage quarterly"
 
 # add to results data frame
 df.results.quarterly$market_leverage = market_leverage.quarterly
+
+## Do nice plots compare the Leverage Ratios
+
+fig <- plot_ly(
+  data = df.results.quarterly,
+  x = ~time, 
+  y = ~market_leverage,
+  name = "Market",
+  type = "scatter",
+  mode = "lines"
+) %>% 
+  add_trace(y = ~book_leverage, name = "Book")
+fig %>% layout(title = "Leverage Ratios")
 
 
 #### EX 2 ####
@@ -334,7 +358,35 @@ df.results.quarterly$cash_from_investing_activities = df.cf.quarterly$change_in_
   df.cf.quarterly$net_cash_from_other_acquisitions + df.cf.quarterly$other_investing_activities + df.cf.quarterly$net_cash_from_discontinued_operations_investing
 
 
+# Generating Image of the table
+as_image(kable(df.results.quarterly), file = "C:/Users/santi/OneDrive/Documentos/R/CorporateFinance/table_ratios.png")
 
+
+table_ratios <- cbind(df.results.quarterly[,1] ,(apply(df.results.quarterly[,2:13], 2, function(x) round(x,2))))
+
+
+table_ratios[,c(1, 4:10)] %>%
+  kbl(booktabs = T, linesep = "") %>%
+  add_header_above(c("Quarter",
+                     "Financial Ratios" = 7),
+                   color = spec_color(1, option = "A"), bold = T) %>%
+  kable_styling(latex_options = c("hold_position")) %>%
+  row_spec(0, bold = T, color = spec_color(1)) %>%
+  column_spec(1, bold = T, color = spec_color(1)) %>%
+  column_spec(2, color = "white",
+              background = spec_color(c(as.numeric(table_ratios[,4])), option = "D", end = 0.8,)) %>%
+  column_spec(3, color = "white",
+              background = spec_color(c(as.numeric(table_ratios[,5])), option = "D", end = 0.8)) %>%
+  column_spec(4, color = "white",
+              background = spec_color(c(as.numeric(table_ratios[,6])), option = "D", end = 0.8)) %>%
+  column_spec(5, color = "white",
+              background = spec_color(c(as.numeric(table_ratios[,7])), option = "D", end = 0.8)) %>%
+  column_spec(6, color = "white",
+              background = spec_color(c(as.numeric(table_ratios[,8])), option = "D", end = 0.8)) %>%
+  column_spec(7, color = "white",
+              background = spec_color(c(as.numeric(table_ratios[,9])), option = "D", end = 0.8)) %>%
+  column_spec(8, color = "white",
+              background = spec_color(c(as.numeric(table_ratios[,10])), option = "D", end = 0.8))
 
 
 #### EX 3 ####
@@ -357,7 +409,7 @@ df.dividends$Yield = sub("%", "", df.dividends$Amount, fixed = TRUE) %>% as.nume
 
 # ToDo: You need to look at the news releases of the companies' website for tender offer or market offer.
 
-
+View(df.dividends)
 
 
 
@@ -436,8 +488,6 @@ market_monthly_ar_annualized = df.SP500E.monthly$monthly.returns %>% Return.annu
 market_daily_compounded_annualized = df.SP500E.daily$daily.returns %>% Return.annualized(scale = 252, geometric = TRUE)
 market_weekly_compounded_annualized = df.SP500E.weekly$weekly.returns %>% Return.annualized(scale = 52, geometric = TRUE)
 market_monthly_compounded_annualized = df.SP500E.monthly$monthly.returns %>% Return.annualized(scale = 12, geometric = TRUE)
-
-
 
 
 #### EX 6 ####
@@ -521,7 +571,11 @@ barplot(cor_seq, names.arg = sapply(1:8, FUN = function(x)  paste0("(",df.iterat
 rolling_cor = runCor(df.SP500E.weekly$weekly.returns, df.COP.big.weekly$weekly.returns, n=104)
 
 # plot the time series of the rolling correlation
-plot(y=rolling_cor, x=df.SP500E.weekly$date, type = 'l')
 
-
-
+fig3 <- plot_ly(x = df.SP500E.weekly$date, 
+  y = rolling_cor,
+  name = "Market",
+  type = "scatter",
+  mode = "lines"
+) 
+fig3 %>% layout(title = "Rolling Correlation")
