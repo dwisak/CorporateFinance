@@ -8,6 +8,7 @@ library(magrittr)
 library(plotly)
 library(kableExtra)
 library(viridis)
+library(tidyquant)
 
 WD = getwd()
 
@@ -183,7 +184,6 @@ df.results.quarterly$book_leverage = book_leverage.quarterly
 # get price time series for the ticker - to compute market cap 
 df.prices = simfinapi::sfa_get_prices(TICKER, SMFIN_ID)
 
-
 # --- market_leverage: yearly ---
 # get the correct dates for the report filing - s.t. we can filter the price data frame
 price_dates = c("2015-12-31","2016-12-30", "2017-12-29",
@@ -231,19 +231,18 @@ attributes(market_leverage.quarterly)$label = "market leverage quarterly"
 # add to results data frame
 df.results.quarterly$market_leverage = market_leverage.quarterly
 
-## Do nice plots compare the Leverage Ratios
+## Plots the Leverage Ratios
 
-fig <- plot_ly(
-  data = df.results.quarterly,
-  x = ~time, 
-  y = ~market_leverage,
-  name = "Market",
-  type = "scatter",
-  mode = "lines"
-) %>% 
-  add_trace(y = ~book_leverage, name = "Book")
-fig %>% layout(title = "Leverage Ratios")
-
+df <- data.frame(quarter = df.results.quarterly$time,
+                 book = df.results.quarterly$book_leverage,
+                 market = df.results.quarterly$market_leverage)
+df <- df %>% melt(id.var = 'quarter')
+ggplot(df, aes(x = quarter, y = value, group = variable, colour = variable)) + 
+  geom_line() + 
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) +
+  ggtitle("Leverage Ratios") +
+  ylab("leverage")
+  
 
 #### EX 2 ####
 
@@ -358,35 +357,37 @@ df.results.quarterly$cash_from_investing_activities = df.cf.quarterly$change_in_
   df.cf.quarterly$net_cash_from_other_acquisitions + df.cf.quarterly$other_investing_activities + df.cf.quarterly$net_cash_from_discontinued_operations_investing
 
 
-# Generating Image of the table
-as_image(kable(df.results.quarterly), file = "C:/Users/santi/OneDrive/Documentos/R/CorporateFinance/table_ratios.png")
+# Plotting the ratios
 
+library(patchwork)
+library(scales)
 
-table_ratios <- cbind(df.results.quarterly[,1] ,(apply(df.results.quarterly[,2:13], 2, function(x) round(x,2))))
+df <- data.frame(quarter = df.results.quarterly$time,
+                 net_profit = df.results.quarterly$net_profit_margin,
+                 roe = df.results.quarterly$return_on_equity,
+                 roa = df.results.quarterly$return_on_assets)
+df <- df %>% melt(id.var = 'quarter')
+fig1 <- ggplot(df, aes(x = quarter, y = value, group = variable, colour = variable)) + 
+    geom_line() + 
+    scale_color_viridis(discrete = TRUE, option = "plasma", begin = 0, end = 0.6) +
+    theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) +
+    ggtitle("Financial Ratios") +
+    ylab("level")
 
+df2 <- data.frame(quarter = df.results.quarterly$time,
+                 operations = df.results.quarterly$cash_from_operating_activities,
+                 financing = df.results.quarterly$cash_from_financing_activities,
+                 investing = df.results.quarterly$cash_from_investing_activities)
+df2 <- df2 %>% melt(id.var = 'quarter')
+fig2 <- ggplot(df2, aes(x = quarter, y = value, group = variable, colour = variable)) + 
+    geom_line() + 
+    scale_color_viridis(discrete = TRUE, option = "D", begin = 0.4, end = 0.8) +
+    scale_y_continuous(labels = unit_format(unit = "M", scale = 1e-6)) +
+    theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) +
+    ggtitle("Cash from diferent activities") +
+    ylab("Cash")
 
-table_ratios[,c(1, 4:10)] %>%
-  kbl(booktabs = T, linesep = "") %>%
-  add_header_above(c("Quarter",
-                     "Financial Ratios" = 7),
-                   color = spec_color(1, option = "A"), bold = T) %>%
-  kable_styling(latex_options = c("hold_position")) %>%
-  row_spec(0, bold = T, color = spec_color(1)) %>%
-  column_spec(1, bold = T, color = spec_color(1)) %>%
-  column_spec(2, color = "white",
-              background = spec_color(c(as.numeric(table_ratios[,4])), option = "D", end = 0.8,)) %>%
-  column_spec(3, color = "white",
-              background = spec_color(c(as.numeric(table_ratios[,5])), option = "D", end = 0.8)) %>%
-  column_spec(4, color = "white",
-              background = spec_color(c(as.numeric(table_ratios[,6])), option = "D", end = 0.8)) %>%
-  column_spec(5, color = "white",
-              background = spec_color(c(as.numeric(table_ratios[,7])), option = "D", end = 0.8)) %>%
-  column_spec(6, color = "white",
-              background = spec_color(c(as.numeric(table_ratios[,8])), option = "D", end = 0.8)) %>%
-  column_spec(7, color = "white",
-              background = spec_color(c(as.numeric(table_ratios[,9])), option = "D", end = 0.8)) %>%
-  column_spec(8, color = "white",
-              background = spec_color(c(as.numeric(table_ratios[,10])), option = "D", end = 0.8))
+fig1 + fig2 + plot_layout(ncol = 1, nrow = 2)
 
 
 #### EX 3 ####
@@ -402,15 +403,7 @@ df.dividends$Decl..Date = df.dividends$Decl..Date %>% as.Date(format="%m/%d/%y")
 df.dividends$Rec..Date = df.dividends$Rec..Date %>% as.Date(format="%m/%d/%y")
 df.dividends$Pay..Date = df.dividends$Pay..Date %>% as.Date(format="%m/%d/%y")
 df.dividends$Amount = sub("$", "", df.dividends$Amount, fixed = TRUE) %>% as.numeric
-df.dividends$Yield = sub("%", "", df.dividends$Amount, fixed = TRUE) %>% as.numeric
-
-
-# NEWS EVENTS ARE STILL MISSING !!! #
-
-# ToDo: You need to look at the news releases of the companies' website for tender offer or market offer.
-
-View(df.dividends)
-
+df.dividends$Yield = sub("%", "", df.dividends$Yield, fixed = TRUE) %>% as.numeric
 
 
 #### EX 4 ####
@@ -420,13 +413,49 @@ View(df.dividends)
 # the sector of US publicly traded companies that deal in oil/gas. Hence, the most suitable
 # market proxy would be an US index that tracks the oil/gas sector in the USA. 
 # The Dow Jones U.S. Oil & Gas Index (DJUSEN) seems like a suitable choice. The index is
-# designed to measure the stock performance of U.S. companies in the oil and gas sector.
-# Thus, we deem it to be the most appropriate proxy for the market for the company
+# designed to measure the stock performance of U.S. companies in the oil and gas sector, 
+# complete information was nos available online so we decided to stick with the S&P500_Energy
+# S&P Energy Sector is Part of the S&P Index, composed of 21 energy stocks, including COP.
 # ConocoPhillips (COP).
 # https://www.spglobal.com/spdji/en/indices/equity/sp-500-energy-sector/#overview
 
+
+df.SP500 = tq_get("^GSPC", get='stock.prices',
+                from="2016-01-01", to="2020-12-31")
+
+df.COP = tq_get("COP", get='stock.prices',
+                from="2016-01-01", to="2020-12-31")
+
+df.SP500E = read.csv("sp500e.csv")
+Sys.setlocale("LC_TIME", "C")
+colnames(df.SP500E)[1:2] = c("date","price")
+df.SP500E$date = df.SP500E$date %>% as.Date(format="%b %d, %Y")
+df.SP500_E = df.SP500E %>% filter(between(date, as.Date("2016-01-01"),as.Date("2020-12-31")))
+
+price_SP <- df.SP500[c("date", "adjusted")]
+price_COP <- df.COP[c("date", "adjusted")]
+price_SP_E <- df.SP500_E[c("date", "price")]
+
+joined_df <- left_join(price_COP, price_SP, by=c("date"))
+full_df <- left_join(joined_df, price_SP_E, by=c("date"))
+colnames(full_df) <- c("date", "COP", "SP500", "SP500_Energy")
+
+norm_df <- as.data.frame(cbind(full_df[,1], apply(full_df[,2:4], 2, function(x) x/x[1])))
+colnames(norm_df) <- c("date", "COP", "SP500", "SP500_Energy")
+
+
+# Plot for comparison of the Market index
+
+df <- norm_df %>% melt(id.var = 'date')
+ggplot(df, aes(x = date, y = value, group = variable, colour = variable)) + 
+  geom_line() + 
+  #scale_color_viridis(discrete = TRUE, option = "D", begin = 0.4, end = 0.8) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  ggtitle("Market Index Comparision") +
+  ylab("Return")
+
 #### EX 5 ###
-library(tidyquant)
+
 
 df.COP = tq_get("COP", get='stock.prices',
                 from="2016-01-01", to="2020-12-31")
@@ -572,10 +601,11 @@ rolling_cor = runCor(df.SP500E.weekly$weekly.returns, df.COP.big.weekly$weekly.r
 
 # plot the time series of the rolling correlation
 
-fig3 <- plot_ly(x = df.SP500E.weekly$date, 
-  y = rolling_cor,
-  name = "Market",
-  type = "scatter",
-  mode = "lines"
-) 
-fig3 %>% layout(title = "Rolling Correlation")
+df <- data.frame(date = df.SP500E.weekly$date, corr = rolling_cor)
+df <- na.omit(df)
+ggplot(df, aes(x = date, y = corr, group = 1)) + 
+  geom_line(color="steelblue", size=1) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  ggtitle("Rolling Correlation") +
+  ylab("correlation")
+
