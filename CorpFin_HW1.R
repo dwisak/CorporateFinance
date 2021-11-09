@@ -13,10 +13,10 @@ WD = getwd()
 
 # source the API KEY https://simfin.com/
 
-#source("ConstantVariables.R")
+source("ConstantVariables.R")
 
 # Own API Key from 'https://simfin.com/login'
-API_KEY <- "fMCZMXOSNa1WMr9lGTlOKCUXiJjNm7rT"
+#API_KEY <- "fMCZMXOSNa1WMr9lGTlOKCUXiJjNm7rT"
 simfinapi::sfa_set_api_key(api_key = API_KEY)
 simfinapi::sfa_set_cache_dir(path=paste0(WD,"/responses"), create = TRUE)
 
@@ -455,8 +455,12 @@ returns_weekly_compounded_annualized = df.COP.weekly$weekly.returns %>% Return.a
 returns_monthly_compounded_annualized = df.COP.monthly$monthly.returns %>% Return.annualized(scale = 12, geometric = TRUE)
 
 
+
+
+
+
 # src: https://www.investing.com/indices/s-p-500-energy-historical-data
-df.SP500E = read.csv("sp500e.csv")
+df.SP500E = read.csv("InputFiles/sp500e.csv")
 # set right language for R
 Sys.setlocale("LC_TIME", "C")
 
@@ -490,6 +494,39 @@ market_weekly_compounded_annualized = df.SP500E.weekly$weekly.returns %>% Return
 market_monthly_compounded_annualized = df.SP500E.monthly$monthly.returns %>% Return.annualized(scale = 12, geometric = TRUE)
 
 
+# barplot for annualized returns x=day,week,month ; y=return ; cat=cop,market
+df.annualized.returns.geom = data.frame(frequency=c("daily","weekly","monthly",
+                                              "daily","weekly","monthly"),
+                                        compounded_return=c(returns_daily_compounded_annualized,
+                                                          returns_weekly_compounded_annualized,
+                                                          returns_monthly_compounded_annualized,
+                                                          market_daily_compounded_annualized,
+                                                          market_weekly_compounded_annualized,
+                                                          market_monthly_compounded_annualized),
+                                  ticker=c("COP","COP","COP","SP500E","SP500E","SP500E"))
+
+df.annualized.returns.ar = data.frame(frequency=c("daily","weekly","monthly",
+                                               "daily","weekly","monthly"),
+                                   arithmetic_avg_return=c(returns_daily_ar_annualized,
+                                                           returns_weekly_ar_annualized,
+                                                           returns_monthly_ar_annualized,
+                                                           market_daily_ar_annualized,
+                                                           market_weekly_ar_annualized,
+                                                           market_monthly_ar_annualized),
+                                   ticker=c("COP","COP","COP","SP500E","SP500E","SP500E"))
+
+g1 = ggplot(df.annualized.returns.ar, aes(x=frequency, y=arithmetic_avg_return, fill=ticker)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  ylab("arithmetic avg. annualized return")+
+  scale_fill_brewer(palette="Paired")
+  
+g2 = ggplot(df.annualized.returns.geom, aes(x=frequency, y=compounded_return, fill=ticker)) +
+geom_bar(stat="identity", position=position_dodge()) +
+  ylab("compounded annualized return")+
+  scale_fill_brewer(palette="Paired")
+
+ggpubr::ggarrange(g1,g2, ncol = 2)
+
 #### EX 6 ####
 
 # --- daily return volatiltiy ---
@@ -504,6 +541,9 @@ sd(df.SP500E.weekly$weekly.returns) * sqrt(52)
 sd(df.COP.monthly$monthly.returns) * sqrt(12)
 sd(df.SP500E.monthly$monthly.returns) * sqrt(12)
 
+
+
+
 #### EX 7 ####
 
 # --- SECOND APPROACH: rolling window of 104
@@ -512,12 +552,14 @@ vola_cop.weekly = runSD(df.COP.weekly$weekly.returns, n=104) * sqrt(52)
 
 vola_sp500e.weekly = runSD(df.SP500E.weekly$weekly.returns, n=104)  * sqrt(52)
 
+vola_cop.weekly %>% is.na %>% sum # 103
+df.plot.vola = data_frame(date=df.COP.weekly$date[-(1:103)],
+                          cop=vola_cop.weekly[-(1:103)],
+                          sp500e=vola_sp500e.weekly[-(1:103)])
 
-
-
-ggplot(data_frame(date=df.COP.weekly$date, cop=vola_cop.weekly, sp500e=vola_sp500e.weekly) %>% melt(id='date', variable.name="Ticker"),
+ggplot(df.plot.vola %>% melt(id='date', variable.name="Ticker"),
        aes(x=date, y=value, colour=Ticker)) +
-  geom_line() +
+  geom_line(size=1) +
   ggtitle("Rolling Volatility (n=104)")+
   ylab("volatility (annualized)") 
 
@@ -569,6 +611,16 @@ barplot(cor_seq, names.arg = sapply(1:8, FUN = function(x)  paste0("(",df.iterat
 
 # rolling correlation for a window of 104 weeks
 rolling_cor = runCor(df.SP500E.weekly$weekly.returns, df.COP.big.weekly$weekly.returns, n=104)
+
+
+write.csv(rolling_cor, file = "corr.csv")
+
+ggplot(data.frame(date=df.SP500E.weekly$date[-(1:103)], corr=rolling_cor[-(1:103)]),
+       aes(x=date,y=corr)) +
+  geom_line(size=1, color='#1e90ff')+
+  ylab("correlation")+
+  ggtitle("Rolling Correlation: COP - SP500E") 
+
 
 # plot the time series of the rolling correlation
 
