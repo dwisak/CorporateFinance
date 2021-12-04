@@ -6,7 +6,6 @@ library(reshape2)
 library(Rcpp)
 library(magrittr)
 library(plotly)
-library(kableExtra)
 library(viridis)
 library(tidyquant)
 
