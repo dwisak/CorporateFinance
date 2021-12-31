@@ -1,10 +1,15 @@
 # CorporateFinance
 
 ## ToDo:
-* HW2
-    + Ex.1 [Done]
-    + Ex.2 [Done]
-    + Ex.3 [Done]
+* HW3
+    + Ex.12 [Done]
+    + Ex.13 [Done]
+    + Ex.14 [Done]
+    + Ex.15 [Done]
+    + Ex.16 [Open]
+    + Ex.17 [Open]
+    + Ex.18 [Open]
+    + Ex.19 [Open]
 
 Note: please don't share with other groups. Thx.
 ![alt text](https://qfinclub.com/static/images/landing-image.jpg)
