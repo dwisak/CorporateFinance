@@ -6,7 +6,7 @@
     + Ex.13 [Done]
     + Ex.14 [Done]
     + Ex.15 [Done]
-    + Ex.16 [Open]
+    + Ex.16 [In Progress]
     + Ex.17 [Open]
     + Ex.18 [Open]
     + Ex.19 [Open]
