@@ -7,15 +7,16 @@ library(magrittr)
 library(plotly)
 library(tidyquant)
 
-setwd("/home/max/WU/CorporateFinance/CorporateFinance/HW3")
 rm(list = ls())
-WD = getwd()
+main_wd <- getwd()
+WD <- setwd(paste(main_wd, "/HW3", sep = ""))
+
 # source the API KEY https://simfin.com/
 
-source("/home/max/WU/CorporateFinance/CorporateFinance/HW1/ConstantVariables.R")
+source(paste(main_wd, "/HW1/ConstantVariables.R", sep = ""))
 
 # Own API Key from 'https://simfin.com/login'
-#API_KEY <- "fMCZMXOSNa1WMr9lGTlOKCUXiJjNm7rT"
+API_KEY <- "fMCZMXOSNa1WMr9lGTlOKCUXiJjNm7rT"
 simfinapi::sfa_set_api_key(api_key = API_KEY)
 simfinapi::sfa_set_cache_dir(path=paste0(WD,"/responses"), create = TRUE)
 
@@ -89,7 +90,7 @@ get_fin_data = function(statement='bs',years=2015:2020, quarters=c("q1", "q2", "
 # getting daily prices for COP
 df.COP = tq_get("COP", get='stock.prices',
                 from="2014-01-01", to="2021-12-31")
-write.csv(df.COP,file = "~/WU/CorporateFinance/CorporateFinance/HW3/InputFiles/COP_daily_prices.csv")
+write.csv(df.COP,file = "COP_daily_prices.csv")
 
 # computing weekly returns for COP
 df.COP.weekly = df.COP %>% tq_transmute(select="adjusted",
@@ -97,9 +98,11 @@ df.COP.weekly = df.COP %>% tq_transmute(select="adjusted",
                                         period="weekly", 
                                         type="arithmetic")
 
+##### EX 12 #####
+
 
 # loading the Fama-French data
-df.FF = read.csv("~/WU/CorporateFinance/CorporateFinance/HW3/InputFiles/F-F_Research_Data_Factors_weekly.csv",
+df.FF = read.csv(paste(WD, "/InputFiles/F-F_Research_Data_Factors_weekly.csv", sep = ""),
                  skip = 4) %>% as_tibble()
 # rename colnames
 colnames(df.FF)[1] = "date"
@@ -117,7 +120,7 @@ df.COP.weekly = df.COP.weekly %>% filter(between(date, as.Date("2014-01-03"),as.
 df.FF$COP.weekly = df.COP.weekly$weekly.returns 
 df.FF$COP.weekly_m_RF = (df.FF$COP.weekly - df.FF$RF) * 100
 
-# rolling weekly regression
+# rolling weekly regression (linear model over a rolling window of 104 weeks)
 df.regression.results = rollRegres::roll_regres(data = df.FF,
                         formula = "COP.weekly_m_RF ~ Mkt.RF + SMB + HML",
                         width = 104)$coef %>% as_tibble
@@ -130,7 +133,7 @@ df.regression.results = df.regression.results %>%
   filter(between(date, as.Date("2017-01-01"),as.Date("2021-12-31")))
 
 # write the data frame to the output directory
-write.csv(df.regression.results,file = "~/WU/CorporateFinance/CorporateFinance/HW3/OutputFiles/Ex12_regression_results.csv")
+write.csv(df.regression.results,file = "Ex12_regression_results.csv")
 
 ##### EX 13 #####
 
@@ -147,13 +150,14 @@ df.regression.results2 = df.regression.results2 %>%
   filter(between(date, as.Date("2017-01-01"),as.Date("2021-12-31")))
 
 # write the data frame to the output directory
-write.csv(df.regression.results2, file = "~/WU/CorporateFinance/CorporateFinance/HW3/OutputFiles/Ex13_regression_results.csv")
+write.csv(df.regression.results2, file = "Ex13_regression_results.csv")
 
 plot(df.regression.results$Mkt.RF, x=df.regression.results$date, type = "l", ylim=c(0, 2.1))
 lines(df.regression.results2$Mkt.RF, x=df.regression.results2$date, col="red")
 
 ##### EX 15 #####
 
+# Peer group: Firms 1-6
 # tickers: EOG, APA, MRO, MUR, PXD
 
 TICKERS = c('COP', 'EOG', 'APA', 'MRO', 'MUR', 'PXD')
@@ -208,8 +212,8 @@ get_assetbeta = function(TICKER, year=2021, quarter="q3", lookback_weeks=104, de
                      from="2020-01-01", to="2021-12-31")
   
   # saving the data in the inputfile dir
-  write.csv(df.TICKER,file = paste0(c("~/WU/CorporateFinance/CorporateFinance/HW3/InputFiles/",TICKER,"_daily_prices.csv"), collapse = ""))
-  write.csv(df.SPY,file = "~/WU/CorporateFinance/CorporateFinance/HW3/InputFiles/SPY_daily_prices.csv")
+  write.csv(df.TICKER,file = paste0(c(TICKER,"_daily_prices.csv"), collapse = ""))
+  write.csv(df.SPY,file = "SPY_daily_prices.csv")
   
   # compute the returns (weekly) for the stock
   df.returns = df.TICKER %>% tq_transmute(select="adjusted",
@@ -250,14 +254,62 @@ asset_beta = sapply(TICKERS, function(TICKER){
 
 
 df.results_EX15$asset_beta = asset_beta
-write.csv(df.results_EX15,file = "~/WU/CorporateFinance/CorporateFinance/HW3/OutputFiles/EX15_asset_betas.csv")
+write.csv(df.results_EX15,file = "EX15_asset_betas.csv")
 
 
 
 #### EX 14 ####
 
 df.results_EX14 = df.results_EX15 %>% summarise(peer_asset_beta=mean(asset_beta))
-write.csv(df.results_EX14,file = "~/WU/CorporateFinance/CorporateFinance/HW3/OutputFiles/EX14_peer_asset_betas.csv")
+write.csv(df.results_EX14,file = "EX14_peer_asset_betas.csv")
+
+
+#### Ex 16 ####
+
+#Hint: you have to relever the equity beta according to the actual leverage of 
+#your firm. Take the debt beta according to the youngest debt rating
+
+# Asset beta from exercise 15 for COP
+COP_beta <- df.results_EX15$asset_beta[df.results_EX15$company == "COP"]
+
+# Expected market return of 8%
+mr <- 0.08
+
+# 10 Year US-Treasury Yield (https://fred.stlouisfed.org/series/DGS10/)
+US_10year_yield <- read.csv(paste(WD, "/InputFiles/DGS10.csv", sep = ""))
+
+# Risk free rate (Taken on 2021-12-31 to be consistent with exercise)
+rf <- as.numeric(US_10year_yield$DGS10[US_10year_yield$DATE == "2021-12-31"])/100
+
+# Book leverage of the firm (4q-2020) (Ex. 1)
+book_lev <- 0.325276725433343
+# Market leverage
+mrkt_lev <- 0.367944325594033
+
+# Most recent debt rating (Ex. 10)
+# Coupon rate of its most recent issuing of debt 
+# https://www.fitchratings.com/entity/conocophillips-80092145#securities-and-obligations
+
+coupon_rate <- 0.0485
+debt_beta <- (coupon_rate - rf) / mr
+
+# Unlevered_beta = levered_beta / (1+(1-tax_rate)*(Debt/Equity))
+# Assuming tax_rate = 0
+unlevered_beta <- debt_beta / book_lev
+
+## Levered and Unlevered Betas (Slides 81/99)
+# \beta_E = \beta_U + D/E * (\beta_U - Beta_D)
+
+# WHICH ONE IS CORRECT???
+equity_beta = unlevered_beta + book_lev * (unlevered_beta - debt_beta)
+equity_beta = unlevered_beta + book_lev * (unlevered_beta - COP_beta)
+
+COP_exp_return <- rf + COP_beta * (mr - rf)
+COP_exp_return2 <- rf + equity_beta * (mr - rf)
+
+
+#### 17 ####
+
 
 
 
