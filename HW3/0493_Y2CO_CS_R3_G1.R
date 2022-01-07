@@ -9,7 +9,7 @@ library(tidyquant)
 
 rm(list = ls())
 main_wd <- getwd()
-WD <- setwd(paste(main_wd, "/HW3", sep = ""))
+WD <- main_wd
 
 # source the API KEY https://simfin.com/
 
@@ -176,6 +176,44 @@ get_market_cap = function(TICKER, date){
   return(market_cap)
 }
 
+get_book_value_of_debt = function(TICKER, year=2021, quarter="q3"){
+  # get the simfin id
+  SMFIN_ID = entities %>% filter(ticker==TICKER) %>% select(simfin_id) %>% as.numeric()
+  
+  # get balance sheet data to compute total debt
+  df.bs.quarterly = simfinapi::sfa_get_statement(
+    ticker = TICKER,
+    simfin_id = SMFIN_ID,
+    statement = "bs",
+    period = quarter,
+    fyear = year,
+  )
+  
+  # compute the total debt (current_portion_of_long_term_debt is 0 for all quarters)
+  book_value_of_debt =  df.bs.quarterly$long_term_debt + df.bs.quarterly$short_term_debt + 
+    ifelse(is.na(df.bs.quarterly$current_portion_of_long_term_debt),
+           0, df.bs.quarterly$current_portion_of_long_term_debt)
+  
+  book_value_of_debt
+}
+
+get_report_date = function(TICKER, year=2021, quarter="q3"){
+  # get the simfin id
+  SMFIN_ID = entities %>% filter(ticker==TICKER) %>% select(simfin_id) %>% as.numeric()
+  
+  # get balance sheet data to compute total debt
+  df.bs.quarterly = simfinapi::sfa_get_statement(
+    ticker = TICKER,
+    simfin_id = SMFIN_ID,
+    statement = "bs",
+    period = quarter,
+    fyear = year,
+  )
+  
+  df.bs.quarterly$report_date
+  
+}
+
 get_assetbeta = function(TICKER, year=2021, quarter="q3", lookback_weeks=104, debt_beta=0.1){
   
   # get the simfin id
@@ -281,31 +319,23 @@ US_10year_yield <- read.csv(paste(WD, "/InputFiles/DGS10.csv", sep = ""))
 # Risk free rate (Taken on 2021-12-31 to be consistent with exercise)
 rf <- as.numeric(US_10year_yield$DGS10[US_10year_yield$DATE == "2021-12-31"])/100
 
-# Book leverage of the firm (4q-2020) (Ex. 1)
-book_lev <- 0.325276725433343
-# Market leverage
-mrkt_lev <- 0.367944325594033
+# book value of debt
+book_value_of_debt = get_book_value_of_debt("COP")
 
-# Most recent debt rating (Ex. 10)
-# Coupon rate of its most recent issuing of debt 
-# https://www.fitchratings.com/entity/conocophillips-80092145#securities-and-obligations
+# market cap
+market_cap = get_market_cap("COP", date = get_report_date("COP"))
 
-coupon_rate <- 0.0485
-debt_beta <- (coupon_rate - rf) / mr
+# most recent debt beta computed in ex 15
+debt_beta <- df.debt_beta$debt_beta[df.debt_beta$company == "COP"]
 
-# Unlevered_beta = levered_beta / (1+(1-tax_rate)*(Debt/Equity))
-# Assuming tax_rate = 0
-unlevered_beta <- debt_beta / book_lev
+# unlevered (asset) beta from ex. 15
+asset_beta['COP']
 
-## Levered and Unlevered Betas (Slides 81/99)
-# \beta_E = \beta_U + D/E * (\beta_U - Beta_D)
+# levered (equity) beta = beta_u + D/E (beta_u-beta_d)
+equity_beta = asset_beta['COP'] + book_value_of_debt/market_cap * (asset_beta['COP'] - debt_beta)
 
-# WHICH ONE IS CORRECT???
-equity_beta = unlevered_beta + book_lev * (unlevered_beta - debt_beta)
-equity_beta = unlevered_beta + book_lev * (unlevered_beta - COP_beta)
 
-COP_exp_return <- rf + COP_beta * (mr - rf)
-COP_exp_return2 <- rf + equity_beta * (mr - rf)
+COP_exp_return <- rf + equity_beta * (mr - rf)
 
 
 #### 17 ####
