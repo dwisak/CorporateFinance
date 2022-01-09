@@ -343,4 +343,86 @@ COP_exp_return <- rf + equity_beta * (mr - rf)
 
 
 
+#### 17 ####
+
+
+#expected dividend per share / (cost of equity - dividend growth rate )
+df.prices = simfinapi::sfa_get_prices(TICKER, SMFIN_ID)
+
+dat<-data.frame(date=df.prices$date , dividneds= df.prices$dividend ) %>% na.omit() %>% filter(date>as.Date("2017-01-01")) %>% head(-1)
+plot(xts(dat$dividneds, order.by = dat$date), main="Historical Dividends per Share")
+
+
+########possible options to estimate expected dividends
+#Dividend policy (when available)
+#Historical dividend growth rate
+#Management's profit forecasts
+#Recent dividend payout ratios
+#Current economic conditions
+
+
+#quartely divindeds are paid for COP
+#SEC filing:
+#An increase in the company's quarterly ordinary dividend from 43 cents per share to 46 cents per share, representing a 
+#~7% increase and a current dividend yield of 3%. The dividend is payable on Dec. 1, 2021, to stockholders of record at the close of business on Oct. 28, 2021.
+#from 2017 to 2021 the average annual increase in dividends was 9 - 10 % p.a. 
+#Since in the past increase in dividends was approximately linear, we deem the constant dividend growth model to be an appropriate tool.
+
+dividends_2022<-sum(rep(0.46,4))
+dividends_2023<-sum(rep(0.50,4))
+dividends_2024<-sum(rep(0.54,4))
+
+Div1 <- c(dividends_2022, dividends_2023, dividends_2024)
+g1 <- mean(diff(Div1)/Div1[-1]) 
+g1
+
+sum(dividends_2022/(1+COP_exp_return_eq)^(seq(0.25, 1 ,by=0.25)))+ sum(dividends_2024/(1+COP_exp_return_eq)^(seq(1.25, 2 ,by=0.25)))+sum(dividends_2024/(1+COP_exp_return_eq)^(seq(2.25, 3 ,by=0.25))) +  dividends_2024/ (COP_exp_return_eq -g1)
+
+
+
+#### 19 ####
+mr #expexted market return
+tau<- 0.21 #tax rate
+COP_exp_return_dbt <-rf  + debt_beta *(mr -rf ) #capm with debt beta
+market_cap_all<-sapply( TICKERS, get_market_cap ,date = as.Date("2021-09-30")) 
+debt_all <- mean(sapply( TICKERS,  get_book_value_of_debt )) 
+
+#we are supposed to calculate the arithmetic mean of the debt to value ratio of our 6 firms for this task
+equity_ratio<- mean(debt_all/(market_cap_all+debt_all))
+debt_ratio<- 1- equity_ratio
+
+wacc <- ((COP_exp_return_eq) * equity_ratio + (COP_exp_return_dbt)* debt_ratio * (1-tau))
+wacc
+
+
+### 18 ###
+#https://www.macrotrends.net/stocks/charts/COP/conocophillips/free-cash-flow
+#https://static.conocophillips.com/files/resources/transaction-announcement-and-market-update.pdf
+#https://www.macrotrends.net/stocks/charts/COP/conocophillips/free-cash-flow
+#$10 B increase in FCF June 2021 however now is Jan 2022
+#quartely report doesnt contain any forcasting data
+#final press release 6 Dec 2021 contained information about the investment plan of ConocoP
+#key infos:
+#planned companywide 2022 capital expenditures of~$7.2 billion
+#Expected 2022 annual average production of ~1.8MMBOED, representing low single-digit percentage underlying growth versus pro forma 2021;
+#Expected 2022 return of capital to shareholders of ~$7 billion
+#https://www.marketscreener.com/quote/stock/CONOCOPHILLIPS-13929/financials/
+
+#see slides
+#from 2018 to 2023
+FCF<- c( 6184000000	,4468000000	,87000000,	10738000000	,12332000000	,9602000000)
+FCF_in_Mio<-FCF/1000000
+names(FCF_in_Mio)<- 2018:2023
+barplot(FCF_in_Mio, ylab="FCF in Mio")
+
+FCF_in_Mio_2021<-FCF_in_Mio[4]
+FCF_in_Mio_2022<-FCF_in_Mio[5]
+FCF_in_Mio_2023<-FCF_in_Mio[6]
+FCF_in_Mio_Inf<-(FCF_in_Mio_2023)/(wacc-rf)
+
+V0 <- (FCF_in_Mio_2022)/(1+wacc) + (FCF_in_Mio_2023)/(1+wacc)^2 +FCF_in_Mio_Inf 
+shares_outsanding<- df.prices %>% select(common_shares_outstanding) %>% tail(1)
+V0/(shares_outsanding/1000000)
+
+
 
