@@ -368,16 +368,18 @@ plot(xts(dat$dividneds, order.by = dat$date), main="Historical Dividends per Sha
 #from 2017 to 2021 the average annual increase in dividends was 9 - 10 % p.a. 
 #Since in the past increase in dividends was approximately linear, we deem the constant dividend growth model to be an appropriate tool.
 
-dividends_2022<-sum(rep(0.46,4))
-dividends_2023<-sum(rep(0.50,4))
-dividends_2024<-sum(rep(0.54,4))
+dividends_2022<-rep(0.46,4)
+dividends_2023<-rep(0.50,4)
+dividends_2024<-rep(0.54,4)
 
-Div1 <- c(dividends_2022, dividends_2023, dividends_2024)
-g1 <- mean(diff(Div1)/Div1[-1]) 
-g1
 
-sum(dividends_2022/(1+COP_exp_return_eq)^(seq(0.25, 1 ,by=0.25)))+ sum(dividends_2024/(1+COP_exp_return_eq)^(seq(1.25, 2 ,by=0.25)))+sum(dividends_2024/(1+COP_exp_return_eq)^(seq(2.25, 3 ,by=0.25))) +  dividends_2024/ (COP_exp_return_eq -g1)
+Div1 <- c(sum(dividends_2022), sum(dividends_2023), sum(dividends_2024))
+g1 <- mean(diff(Div1)/Div1[-1])
+COP_exp_return_eq<-0.0958
 
+### P_0:                                 
+sum(dividends_2022/(1+COP_exp_return_eq)^(seq(0.25, 1 ,by=0.25)))+ sum(dividends_2023/(1+COP_exp_return_eq)^(seq(1.25, 2 ,by=0.25)))+sum(dividends_2024/(1+COP_exp_return_eq)^(seq(2.25, 3 ,by=0.25))) +  
+  sum(dividends_2024/ (COP_exp_return_eq -g1)/(1+COP_exp_return_eq)^3)
 
 
 #### 19 ####
